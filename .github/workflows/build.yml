@@ -6,27 +6,27 @@ on:
 jobs:
   build-ipa:
     runs-on: macos-14
+    timeout-minutes: 60
+
     steps:
       - name: Checkout repository con sottomoduli
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
-      - name: Install Pods
-        run: pod install
-
       - name: Build Xcode Project
         run: |
-          xcodebuild -workspace LLMFarm.xcworkspace \
+          xcodebuild -project LLMFarm.xcodeproj \
                      -scheme LLMFarm \
                      -sdk iphoneos \
                      -configuration Release \
+                     -derivedDataPath build \
                      build CODE_SIGNING_ALLOWED=NO
 
       - name: Impacchetta file IPA
         run: |
           mkdir -p Payload
-          cp -r build/Release-iphoneos/LLMFarm.app Payload/
+          cp -r build/Build/Products/Release-iphoneos/LLMFarm.app Payload/
           zip -r LLMFarm.ipa Payload/
 
       - name: Carica il file IPA come Artifact
