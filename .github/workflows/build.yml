@@ -14,6 +14,22 @@ jobs:
         with:
           submodules: 'recursive'
 
+      - name: Compila llama.xcframework
+        run: |
+          cd llmfarm_core.swift
+          if [ -f "build_xcframework.sh" ]; then
+            chmod +x build_xcframework.sh
+            ./build_xcframework.sh
+          elif [ -f "build_metal.sh" ]; then
+            chmod +x build_metal.sh
+            ./build_metal.sh
+          elif [ -f "build_llama.sh" ]; then
+            chmod +x build_llama.sh
+            ./build_llama.sh
+          else
+            find . -maxdepth 2 -name "*.sh" -exec chmod +x {} \; -exec {} \;
+          fi
+
       - name: Build Xcode Project
         run: |
           xcodebuild -project LLMFarm.xcodeproj \
