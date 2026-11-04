@@ -12,21 +12,23 @@ jobs:
         with:
           submodules: 'recursive'
 
-      - name: Configura ambiente Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+      - name: Installa dipendenze (CMake)
+        run: brew install cmake
 
       - name: Compila i binari C++ (llama.xcframework)
         run: |
-          # Assegna i permessi agli script di build
-          chmod +x llmfarm_core.swift/*.sh 2>/dev/null || true
-          chmod +x llmfarm_core.swift/llama.cpp/*.sh 2>/dev/null || true
-          
-          # Esegui lo script di build delle librerie se presente
           cd llmfarm_core.swift
-          if [ -f "build_xcframework.sh" ]; then
-            ./build_xcframework.sh
-          elif [ -f "llama.cpp/build-apple.sh" ]; then
-            cd llama.cpp && ./build-apple.sh
+          
+          # Trova ed esegue lo script di build corretto per i framework Apple
+          BUILD_SCRIPT=$(find . -maxdepth 1 -name "*apple*.sh" -o -name "build*.sh" | head -n 1)
+          echo "Eseguo lo script: $BUILD_SCRIPT"
+          chmod +x "$BUILD_SCRIPT"
+          ./"$BUILD_SCRIPT"
+          
+          # Verifica che il framework sia stato generato correttamente
+          if [ ! -d "llama.cpp/build-apple/llama.xcframework" ]; then
+            echo "ERRORE: llama.xcframework non è stato generato dallo script."
+            exit 1
           fi
 
       - name: Build Xcode Project
