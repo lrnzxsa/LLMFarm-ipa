@@ -1,75 +1,52 @@
 name: Build LLMFarm IPA
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Permette di avviare il workflow manualmente dalla tab "Actions"
+  push:
+    branches: [ "main" ]
 
 jobs:
   build-ipa:
-    runs-on: macos-14
+    name: Build iOS App
+    runs-on: macos-15
+
     steps:
-      - name: Checkout repository con sottomoduli
+      - name: Checkout del repository con sottomoduli
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          repository: 'guinmoon/LLMFarm'
+          submodules: recursive # Equivalente a --recurse-submodules
+          fetch-depth: 0
 
-      - name: Installa dipendenze (CMake)
-        run: brew install cmake
-      - name: Compila i binari C++ (llama.xcframework)
-        run: |
-          # Lo script si trova nella root del progetto LLMFarm
-          echo "Assegno i permessi ed eseguo build-xcframework_cpu.sh"
-          chmod +x build-xcframework_cpu.sh
-          ./build-xcframework_cpu.sh
-          
-          if [ ! -d "llmfarm_core.swift/llama.cpp/build-apple/llama.xcframework" ]; then
-            echo "Avviso: llama.xcframework non trovato nel percorso standard, verifico le alternative..."
-            find . -name "llama.xcframework"
-          fi
-      - name: Compila i binari C++ (llama.xcframework)   
-        run: |
-           chmod +x build-xcframework_cpu.sh
-            
-            if [ -f "llmfarm_core.swift/CMakeLists.txt" ]; then
-              cd llmfarm_core.swift
-              ../build-xcframework_cpu.sh
-            elif [ -f "llmfarm_core.swift/llama.cpp/CMakeLists.txt" ]; then
-              cd llmfarm_core.swift/llama.cpp
-              ../../build-xcframework_cpu.sh
-            else
-              echo "Errore: CMakeLists.txt non trovato in nessun sottomodulo."
-              exit 1
-            fi
-      
-            cd $GITHUB_WORKSPACE
-      
-            mkdir -p llmfarm_core.swift/llama.cpp/build-apple
-      
-            FRAMEWORK_PATH=$(find . -type d -name "llama.xcframework" | head -n 1)
-            if [ -n "$FRAMEWORK_PATH" ]; then
-              echo "Trovato framework in $FRAMEWORK_PATH. Copio nel percorso SPM..."
-              cp -r "$FRAMEWORK_PATH" llmfarm_core.swift/llama.cpp/build-apple/
-            else
-              echo "Errore: llama.xcframework non è stato generato dallo script."
-              exit 1
-            fi
+      - name: Seleziona la versione di Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
-      - name: Build Xcode Project
+      - name: Build dell'archivio Xcode (Unsigned)
         run: |
-          xcodebuild -project LLMFarm.xcodeproj \
-                     -scheme LLMFarm \
-                     -sdk iphoneos \
-                     -configuration Release \
-                     -derivedDataPath build \
-                     build CODE_SIGNING_ALLOWED=NO
+          xcodebuild clean archive \
+            -project LLMFarm.xcodeproj \
+            -scheme LLMFarm \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath ${{ github.workspace }}/build/LLMFarm.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Impacchetta file IPA
+      - name: Pacchettizzazione nel file .ipa
         run: |
+          cd ${{ github.workspace }}/build
           mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/LLMFarm.app Payload/
-          zip -r LLMFarm.ipa Payload/
+          # Copia l'applicazione compilata nella cartella Payload
+          cp -r LLMFarm.xcarchive/Products/Applications/LLMFarm.app Payload/
+          # Comprime la cartella Payload nel formato .ipa
+          zip -qr LLMFarm.ipa Payload/
 
-      - name: Carica il file IPA come Artifact
+      - name: Carica l'artifact .ipa
         uses: actions/upload-artifact@v4
         with:
-          name: LLMFarm-Unsigned-IPA
-          path: LLMFarm.ipa
+          name: LLMFarm-Release-IPA
+          path: ${{ github.workspace }}/build/LLMFarm.ipa
+          retention-days: 7
