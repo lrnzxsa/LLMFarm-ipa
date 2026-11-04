@@ -14,7 +14,18 @@ jobs:
 
       - name: Installa dipendenze (CMake)
         run: brew install cmake
-
+      - name: Compila i binari C++ (llama.xcframework)
+        run: |
+          # Lo script si trova nella root del progetto LLMFarm
+          echo "Assegno i permessi ed eseguo build-xcframework_cpu.sh"
+          chmod +x build-xcframework_cpu.sh
+          ./build-xcframework_cpu.sh
+          
+          if [ ! -d "llmfarm_core.swift/llama.cpp/build-apple/llama.xcframework" ]; then
+            echo "Avviso: llama.xcframework non trovato nel percorso standard, verifico le alternative..."
+            find . -name "llama.xcframework"
+          fi
+      
       - name: Compila i binari C++ (llama.xcframework)
         run: |
           cd llmfarm_core.swift
